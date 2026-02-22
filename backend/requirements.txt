@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+openai
+anthropic
+google-generativeai
+aiohttp
+python-dotenv
+pydantic
+httpx
