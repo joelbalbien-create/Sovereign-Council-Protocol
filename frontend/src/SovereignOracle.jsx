@@ -137,13 +137,22 @@ function FusionDisplay({ fusion }) {
           <span style={{ color: "#333", fontSize: 9, fontFamily: "monospace" }}>{fusion.queens_active}/4 LINEAGES</span>
         </div>
       </div>
-      <p style={{
-        color: "#888", fontSize: 12, lineHeight: 1.8,
-        fontFamily: "Georgia, serif", margin: 0,
-        borderLeft: `2px solid ${statusColor}40`, paddingLeft: 12,
+      <div style={{
+        background: `${statusColor}10`,
+        border: `1px solid ${statusColor}30`,
+        borderLeft: `4px solid ${statusColor}`,
+        borderRadius: 6, padding: "16px 20px", marginTop: 8,
       }}>
-        {fusion.fusion_answer}
-      </p>
+        <div style={{ color: statusColor, fontFamily: "monospace", fontSize: 9, letterSpacing: 3, marginBottom: 8 }}>
+          SOVEREIGN VERDICT
+        </div>
+        <p style={{
+          color: "#e0e0e0", fontSize: 14, lineHeight: 1.9,
+          fontFamily: "Georgia, serif", margin: 0, fontWeight: "normal",
+        }}>
+          {fusion.fusion_answer}
+        </p>
+      </div>
     </div>
   );
 }
@@ -197,7 +206,7 @@ export default function SovereignOracle() {
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch("http://localhost:8002/oracle/query", {
+      const response = await fetch("http://sovereign-oracle.local:8002/oracle/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim(), domain, urgency_override: urgency }),
