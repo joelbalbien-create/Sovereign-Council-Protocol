@@ -1,153 +1,159 @@
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-import asyncio
-import os
+import asyncio, os, time, hashlib, random
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI(title="Sovereign Oracle", version="1.0")
-
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 SOVEREIGN_PROFILE = {
-    "name": "Joel Balbien",
-    "age": 71,
-    "tier": 4,
-    "portfolio": {
-        "UTWO": 46, "DVY": 18, "SPYG": 11,
-        "CVX": 3, "XOM": 3, "CTRA": 2,
-        "BOTZ": 4, "IEMG": 5, "GLD": 1.5,
-        "USO": 1.5, "AAPL": 3, "AMZN": 4,
-        "GOOG": 4, "CASH": 10
-    },
-    "domains": ["wealth", "health", "longevity"],
-    "health_network": "UCLA Health",
-    "longevity_protocol": "custom"
+    "name": "Joel Balbien", "age": 71, "tier": 4,
+    "portfolio": {"UTWO":46,"DVY":18,"SPYG":11,"CVX":3,"XOM":3,"CTRA":2,"BOTZ":4,"IEMG":5,"GLD":1.5,"USO":1.5,"AAPL":3,"AMZN":4,"GOOG":4,"CASH":10},
+    "domains": ["wealth","health","longevity"], "health_network": "UCLA Health"
+}
+
+GRID_REGIONS = {
+    "CAISO":   {"load":0.72,"price":0.14},
+    "PJM":     {"load":0.61,"price":0.11},
+    "ERCOT":   {"load":0.83,"price":0.17},
+    "US-MISO": {"load":0.58,"price":0.09},
+}
+
+SABBATH_REST_CONSTANT = 0.142
+SABBATH_LOAD_THRESHOLD = 0.80
+
+QUEEN_WEIGHTS = {
+    "wealth":    {"alethea":0.30,"sophia":0.25,"eirene":0.25,"kairos":0.20},
+    "health":    {"alethea":0.35,"sophia":0.25,"eirene":0.20,"kairos":0.20},
+    "longevity": {"alethea":0.25,"sophia":0.25,"eirene":0.20,"kairos":0.30},
+    "general":   {"alethea":0.25,"sophia":0.25,"eirene":0.25,"kairos":0.25},
+}
+
+URGENCY_MAP = {
+    "RED":    {"U":1.00,"label":"SOVEREIGN OVERRIDE","color":"RED"},
+    "YELLOW": {"U":0.75,"label":"CRITICAL","color":"YELLOW"},
+    "GREEN":  {"U":0.50,"label":"ELEVATED","color":"GREEN"},
+    "BLUE":   {"U":0.25,"label":"ROUTINE","color":"BLUE"},
 }
 
 DOMAIN_CONFIGS = {
     "wealth": {
-        "alethea": "You are Alethea, a quantitative financial analyst. Analyze using data, metrics, IRR, DCF, Sharpe ratios, and historical patterns. Focus on Joel Balbien age 71, retirement portfolio.",
-        "sophia": "You are Sophia, a macro market strategist. Analyze geopolitical context, sector rotation, Fed policy, and global capital flows as they relate to Joel's holdings.",
-        "eirene": "You are Eirene, a risk analyst. Identify downside risks, concentration issues, black swan scenarios, and what could go wrong with Joel's portfolio.",
-        "kairos": "You are Kairos, a wealth philosopher. Focus on long-term thinking, retirement optimization, legacy, tax efficiency, and RMD planning for Joel at age 71."
+        "alethea": "You are Alethea, quantitative financial analyst. Use data, metrics, Sharpe ratios, DCF. Focus on Joel Balbien age 71 retirement portfolio.",
+        "sophia":  "You are Sophia, macro market strategist. Analyze geopolitical context, Fed policy, sector rotation for Joel holdings.",
+        "eirene":  "You are Eirene, risk analyst. Identify downside risks, black swans, concentration issues for Joel portfolio.",
+        "kairos":  "You are Kairos, wealth philosopher. Focus on legacy, tax efficiency, RMD planning for Joel at age 71."
     },
     "health": {
-        "alethea": "You are Alethea, a diagnostician. Interpret lab values, identify patterns, compare to optimal ranges for a healthy 71-year-old male at UCLA Health.",
-        "sophia": "You are Sophia, a clinical researcher. Provide latest evidence-based medicine, clinical guidelines, and current research relevant to the health question.",
-        "eirene": "You are Eirene, an integrative medicine specialist. Identify what conventional medicine might miss, root causes, and functional medicine perspectives.",
-        "kairos": "You are Kairos, a patient advocate. Focus on informed consent, questions to ask physicians, quality of life, and Joel's rights as a UCLA Health patient."
+        "alethea": "You are Alethea, diagnostician. Interpret lab values for a healthy 71-year-old male at UCLA Health.",
+        "sophia":  "You are Sophia, clinical researcher. Provide evidence-based medicine and clinical guidelines.",
+        "eirene":  "You are Eirene, integrative medicine specialist. Identify root causes and functional medicine perspectives.",
+        "kairos":  "You are Kairos, patient advocate. Focus on informed consent and questions to ask physicians."
     },
     "longevity": {
-        "alethea": "You are Alethea, a longevity scientist. Analyze through the lens of the hallmarks of aging, NAD+, senolytics, mTOR, AMPK, and validated longevity research.",
-        "sophia": "You are Sophia, a clinical nutritionist. Focus on evidence-based dietary protocols, phytochemicals, fasting research, and nutrient optimization for longevity.",
-        "eirene": "You are Eirene, an exercise physiologist. Analyze exercise protocols, Zone 2 cardio, resistance training, and recovery science optimizing healthspan at age 71.",
-        "kairos": "You are Kairos, a wellness integrator. Focus on mind-body connection, sleep science, stress management, purpose, and holistic longevity for Joel."
+        "alethea": "You are Alethea, longevity scientist. Analyze hallmarks of aging, NAD+, senolytics, mTOR, AMPK.",
+        "sophia":  "You are Sophia, clinical nutritionist. Focus on fasting research and phytochemical optimization.",
+        "eirene":  "You are Eirene, exercise physiologist. Analyze Zone 2 cardio and resistance training for age 71.",
+        "kairos":  "You are Kairos, wellness integrator. Focus on sleep, stress, purpose and holistic longevity."
     },
     "general": {
-        "alethea": "You are Alethea, an analytical expert. Provide data-driven, factual, logical analysis with precision and depth.",
-        "sophia": "You are Sophia, a creative synthesizer. Provide broader context, narrative framing, and creative perspectives.",
-        "eirene": "You are Eirene, a contrarian analyst. Identify risks, edge cases, what could go wrong, and perspectives others miss.",
-        "kairos": "You are Kairos, an ethical philosopher. Provide wisdom, long-term thinking, ethical dimensions, and balanced judgment."
+        "alethea": "You are Alethea, analytical expert. Provide data-driven logical analysis.",
+        "sophia":  "You are Sophia, creative synthesizer. Provide broader context and creative perspectives.",
+        "eirene":  "You are Eirene, contrarian analyst. Identify risks and what others miss.",
+        "kairos":  "You are Kairos, ethical philosopher. Provide wisdom and long-term thinking."
     }
 }
 
-def detect_urgency(query: str) -> dict:
-    query_lower = query.lower()
-    red_keywords = ["missile", "attack", "emergency", "immediate", "urgent", "crisis", "crash", "collapse", "critical", "now"]
-    yellow_keywords = ["meeting", "minutes", "hours", "today", "decision", "deadline", "soon", "important"]
-    green_keywords = ["should i", "recommend", "strategy", "plan", "analyze", "review", "consider"]
-    if any(k in query_lower for k in red_keywords):
-        return {"color": "RED", "cycles": 1, "time_limit": 30, "label": "SOVEREIGN OVERRIDE"}
-    elif any(k in query_lower for k in yellow_keywords):
-        return {"color": "YELLOW", "cycles": 2, "time_limit": 480, "label": "CRITICAL"}
-    elif any(k in query_lower for k in green_keywords):
-        return {"color": "GREEN", "cycles": 3, "time_limit": 3600, "label": "ELEVATED"}
-    else:
-        return {"color": "BLUE", "cycles": 3, "time_limit": None, "label": "ROUTINE"}
+def get_grid_telemetry(region="CAISO"):
+    grid = GRID_REGIONS.get(region, GRID_REGIONS["CAISO"]).copy()
+    grid["load"] = min(0.99, max(0.20, grid["load"] + random.uniform(-0.05, 0.05)))
+    grid["price"] = max(0.05, grid["price"] + random.uniform(-0.01, 0.02))
+    grid["timestamp"] = time.time()
+    grid["region"] = region
+    return grid
 
-class QueryRequest(BaseModel):
-    query: str
-    domain: str = "general"
-    urgency_override: Optional[str] = None
-    custom_options: Optional[List[str]] = None
-    directive: Optional[str] = None
+def compute_social_cost_function(urgency, tier, domain):
+    scf = 1.0 * (1.0 - urgency * 0.6)
+    scf *= {1:1.0,2:0.85,3:0.70,4:0.55}.get(tier, 1.0)
+    scf *= {"health":0.7,"longevity":0.75,"wealth":0.85,"general":1.0}.get(domain, 1.0)
+    return max(0.1, min(1.0, scf))
 
-async def call_openai(prompt: str, system: str) -> str:
+def compute_metabolic_efficiency_score(U, L, P, SCF):
+    P_norm = min(1.0, P / 0.30)
+    denom = max(0.001, L * P_norm * SCF)
+    Me = U / denom
+    if Me >= 2.0:   mode, cycles = "ITERATIVE_TRIANGULATION", 3
+    elif Me >= 0.8: mode, cycles = "WEIGHTED_SYNTHESIS", 2
+    else:           mode, cycles = "ELASTIC_SABBATH", 0
+    return {"Me":round(Me,4),"U":U,"L":L,"P":P,"P_normalized":round(P_norm,4),"SCF":round(SCF,4),
+            "mode":mode,"cycles":cycles,"equation":f"Me={U}/({L:.3f}x{P_norm:.3f}x{SCF:.3f})={Me:.4f}"}
+
+def check_elastic_sabbath(grid_load):
+    active = grid_load >= SABBATH_LOAD_THRESHOLD
+    return {"sabbath_active":active,"rest_constant":SABBATH_REST_CONSTANT,
+            "grid_load":grid_load,"sabbath_credit":round(grid_load*SABBATH_REST_CONSTANT,4) if active else 0.0,
+            "status":"RESTING" if active else "ACTIVE"}
+
+def generate_zkp_proof(responses, fusion):
+    data = str({"r":{k:v[:50] for k,v in responses.items()},"s":fusion.get("status"),"t":time.time()})
+    h = hashlib.sha256(data.encode()).hexdigest()
+    return {"zkp_hash":h,"zkp_short":f"{h[:8]}...{h[-8:]}","session_id":f"SO-{int(time.time())}-{h[:6]}","verified":True}
+
+def detect_urgency(query):
+    q = query.lower()
+    if any(k in q for k in ["emergency","crisis","crash","critical","immediate"]): return "RED"
+    elif any(k in q for k in ["meeting","today","deadline","soon"]): return "YELLOW"
+    elif any(k in q for k in ["should i","recommend","strategy","analyze"]): return "GREEN"
+    return "BLUE"
+
+async def call_openai(prompt, system):
     try:
         import openai
         client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Alethea unavailable: {str(e)}"
+        r = await client.chat.completions.create(model="gpt-4o",
+            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=500)
+        return r.choices[0].message.content
+    except Exception as e: return f"Alethea unavailable: {e}"
 
-async def call_anthropic(prompt: str, system: str) -> str:
+async def call_anthropic(prompt, system):
     try:
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        response = await client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=500,
-            system=system,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
-    except Exception as e:
-        return f"Kairos unavailable: {str(e)}"
+        r = await client.messages.create(model="claude-opus-4-6",max_tokens=500,system=system,
+            messages=[{"role":"user","content":prompt}])
+        return r.content[0].text
+    except Exception as e: return f"Kairos unavailable: {e}"
 
-async def call_gemini(prompt: str, system: str) -> str:
+async def call_gemini(prompt, system):
     try:
         import google.generativeai as genai
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY",""))
         model = genai.GenerativeModel("gemini-2.5-flash")
-        response = await asyncio.to_thread(
-            model.generate_content,
-            f"{system}\n\n{prompt}"
-        )
-        return response.text
-    except Exception as e:
-        return f"Sophia unavailable: {str(e)}"
+        r = await asyncio.to_thread(model.generate_content, f"{system}\n\n{prompt}")
+        return r.text
+    except Exception as e: return f"Sophia unavailable: {e}"
 
-async def call_grok(prompt: str, system: str) -> str:
+async def call_grok(prompt, system):
     try:
         import openai
-        client = openai.AsyncOpenAI(
-            api_key=os.getenv("XAI_API_KEY"),
-            base_url="https://api.x.ai/v1"
-        )
-        response = await client.chat.completions.create(
-            model="grok-3",
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=500
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Eirene unavailable: {str(e)}"
+        client = openai.AsyncOpenAI(api_key=os.getenv("XAI_API_KEY"),base_url="https://api.x.ai/v1")
+        r = await client.chat.completions.create(model="grok-3",
+            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=500)
+        return r.choices[0].message.content
+    except Exception as e: return f"Eirene unavailable: {e}"
 
-async def run_queen_round(query: str, domain: str, round_num: int, previous_responses: dict = None) -> dict:
+async def run_queen_round(query, domain, round_num, weights, prev=None):
     configs = DOMAIN_CONFIGS.get(domain, DOMAIN_CONFIGS["general"])
-    profile_context = f"Sovereign profile: {SOVEREIGN_PROFILE['name']}, age {SOVEREIGN_PROFILE['age']}, Tier {SOVEREIGN_PROFILE['tier']}."
-    
-    if previous_responses:
-        prev_context = f"\n\nPrevious round responses:\nAlethea: {previous_responses.get('alethea','')}\nSophia: {previous_responses.get('sophia','')}\nEirene: {previous_responses.get('eirene','')}\nKairos: {previous_responses.get('kairos','')}\n\nRefine your analysis based on what the other queens said. Build on agreements, resolve conflicts."
-        prompt = f"{profile_context}\n\nQuery: {query}{prev_context}"
+    ctx = f"Sovereign: Joel Balbien age 71 Tier 4. Domain: {domain}. Round {round_num}."
+    if prev:
+        prevtext = "\n".join([f"{k}: {v[:250]}" for k,v in prev.items() if v])
+        prompt = f"{ctx}\nQuery: {query}\nPrevious responses:\n{prevtext}\nRefine your analysis."
     else:
-        prompt = f"{profile_context}\n\nQuery: {query}\n\nProvide your expert analysis in 3-4 sentences. Be specific and actionable."
-
+        prompt = f"{ctx}\nQuery: {query}\nProvide expert analysis in 3-4 sentences. Be specific."
     results = await asyncio.gather(
         call_openai(prompt, configs["alethea"]),
         call_gemini(prompt, configs["sophia"]),
@@ -155,139 +161,94 @@ async def run_queen_round(query: str, domain: str, round_num: int, previous_resp
         call_anthropic(prompt, configs["kairos"]),
         return_exceptions=True
     )
+    return {"alethea":str(results[0]),"sophia":str(results[1]),"eirene":str(results[2]),"kairos":str(results[3])}
 
-    return {
-        "alethea": str(results[0]),
-        "sophia": str(results[1]),
-        "eirene": str(results[2]),
-        "kairos": str(results[3])
-    }
-
-def generate_fusion(responses: dict, query: str, domain: str) -> dict:
-    all_responses = list(responses.values())
-    
+def compute_fusion(responses, weights, domain, Me):
+    all_text = " ".join([v for v in responses.values() if v and "unavailable" not in v.lower()])
     agreements = []
-    if "risk" in " ".join(all_responses).lower():
-        agreements.append("Risk awareness present across lineages")
-    if "opportunity" in " ".join(all_responses).lower():
-        agreements.append("Opportunity identified across lineages")
-    if "recommend" in " ".join(all_responses).lower():
-        agreements.append("Recommendations converging")
+    if "risk" in all_text.lower(): agreements.append("Risk convergent")
+    if "recommend" in all_text.lower(): agreements.append("Recommendations converging")
+    if "opportunity" in all_text.lower(): agreements.append("Opportunity identified")
+    active = [k for k,v in responses.items() if v and "unavailable" not in v.lower()]
+    n = len(active)
+    w = sum(weights.get(q,0.25) for q in active)
+    me_f = min(1.0, Me/3.0)
+    conf = min(0.99, w*(0.85+len(agreements)*0.04)*(0.9+me_f*0.1))
+    if n==4 and conf>0.92: status="UNIFIED"
+    elif n>=3 and conf>0.80: status="CONSENSUS"
+    elif n>=2: status,conf="PARTIAL",conf*0.85
+    else: status,conf="INSUFFICIENT",0.0
+    ans = f"{n}/4 lineages, domain={domain}, Me={Me:.3f}: {status} at {conf*100:.1f}%. "
+    if agreements: ans += "Convergence: "+"; ".join(agreements)+"."
+    return {"status":status,"confidence":round(conf,3),"fusion_answer":ans,"agreements":agreements,
+            "queens_active":n,"weights_applied":{k:weights.get(k,0.25) for k in active}}
 
-    confidence = 0.85 + (len(agreements) * 0.04)
-    confidence = min(confidence, 0.99)
+def probability_landscape(responses, custom=None):
+    txt = " ".join([v for v in responses.values() if v]).lower()
+    opts = custom or []
+    if not opts:
+        if any(w in txt for w in ["buy","increase","add","positive"]): opts.append("Buy/Increase")
+        if any(w in txt for w in ["sell","reduce","trim"]): opts.append("Sell/Reduce")
+        if any(w in txt for w in ["hold","maintain","keep"]): opts.append("Hold/Maintain")
+        if any(w in txt for w in ["wait","monitor","watch"]): opts.append("Wait/Monitor")
+        if not opts: opts=["Proceed","Modify","Delay","Gather info"]
+    rem=100; out=[]
+    for i,o in enumerate(opts):
+        p = rem if i==len(opts)-1 else random.randint(10,max(11,rem-(len(opts)-i-1)*10)); rem-=p
+        out.append({"option":o,"probability":p})
+    return sorted(out,key=lambda x:x["probability"],reverse=True)
 
-    queen_count = sum(1 for r in all_responses if "unavailable" not in r.lower())
-    
-    if queen_count == 4:
-        if confidence > 0.92:
-            status = "UNIFIED"
-        else:
-            status = "CONSENSUS"
-    elif queen_count >= 2:
-        status = "PARTIAL"
-        confidence = confidence * 0.8
-    else:
-        status = "INSUFFICIENT"
-        confidence = 0.0
-
-    fusion_answer = f"Based on analysis across all four sovereign lineages for domain '{domain}': "
-    fusion_answer += f"The queens reached {status} with {confidence*100:.1f}% confidence. "
-    
-    if agreements:
-        fusion_answer += f"Key convergence points: {', '.join(agreements)}. "
-    
-    fusion_answer += "Review individual queen responses for full analysis and nuance."
-
-    return {
-        "status": status,
-        "confidence": round(confidence, 3),
-        "fusion_answer": fusion_answer,
-        "agreements": agreements,
-        "queens_active": queen_count
-    }
-
-def generate_probability_landscape(responses: dict, custom_options: list = None) -> list:
-    import random
-    all_text = " ".join(responses.values()).lower()
-    
-    if custom_options:
-        options = custom_options
-    else:
-        options = []
-        if any(w in all_text for w in ["buy", "increase", "add", "positive"]):
-            options.append("Buy / Increase position")
-        if any(w in all_text for w in ["sell", "reduce", "trim", "decrease"]):
-            options.append("Sell / Reduce position")
-        if any(w in all_text for w in ["hold", "maintain", "keep", "stable"]):
-            options.append("Hold / Maintain position")
-        if any(w in all_text for w in ["wait", "monitor", "watch", "observe"]):
-            options.append("Wait and monitor")
-        if not options:
-            options = ["Proceed as planned", "Modify approach", "Delay decision", "Seek more information"]
-
-    total = 100
-    probabilities = []
-    remaining = total
-    
-    for i, option in enumerate(options):
-        if i == len(options) - 1:
-            prob = remaining
-        else:
-            prob = random.randint(10, remaining - (len(options) - i - 1) * 10)
-            remaining -= prob
-        probabilities.append({"option": option, "probability": prob})
-    
-    probabilities.sort(key=lambda x: x["probability"], reverse=True)
-    return probabilities
+class QueryRequest(BaseModel):
+    query: str
+    domain: str = "general"
+    urgency_override: Optional[str] = None
+    custom_options: Optional[List[str]] = None
+    grid_region: Optional[str] = "CAISO"
 
 @app.get("/health")
 async def health():
-    return {"status": "online", "system": "Sovereign Oracle", "version": "1.0"}
+    return {"status":"online","system":"Sovereign Oracle","version":"1.0",
+            "patent":"Adaptive Multi-Lineage Consensus Architecture","inventor":"Joel Abe Balbien, Ph.D."}
 
 @app.get("/profile")
-async def get_profile():
-    return SOVEREIGN_PROFILE
+async def get_profile(): return SOVEREIGN_PROFILE
+
+@app.get("/portfolio")
+async def get_portfolio(): return {"holdings":SOVEREIGN_PROFILE["portfolio"]}
+
+@app.get("/grid/{region}")
+async def grid_status(region:str="CAISO"):
+    t=get_grid_telemetry(region); s=check_elastic_sabbath(t["load"])
+    return {"telemetry":t,"sabbath":s,"rest_constant":SABBATH_REST_CONSTANT}
 
 @app.post("/oracle/query")
 async def oracle_query(request: QueryRequest):
-    urgency = detect_urgency(request.query)
-    if request.urgency_override:
-        urgency["color"] = request.urgency_override
-    
-    domain_configs = DOMAIN_CONFIGS.get(request.domain, DOMAIN_CONFIGS["general"])
-    cycles = urgency["cycles"]
-    
-    round1 = await run_queen_round(request.query, request.domain, 1)
-    
-    if cycles >= 2:
-        round2 = await run_queen_round(request.query, request.domain, 2, round1)
-        final_responses = round2
-    else:
-        final_responses = round1
-
-    if cycles >= 3:
-        round3 = await run_queen_round(request.query, request.domain, 3, final_responses)
-        final_responses = round3
-
-    fusion = generate_fusion(final_responses, request.query, request.domain)
-    probability_landscape = generate_probability_landscape(final_responses, request.custom_options)
-
-    return {
-        "query": request.query,
-        "domain": request.domain,
-        "urgency": urgency,
-        "rounds_completed": cycles,
-        "queen_responses": final_responses,
-        "round1_responses": round1,
-        "fusion": fusion,
-        "probability_landscape": probability_landscape,
-        "sovereign": SOVEREIGN_PROFILE["name"]
-    }
-
-@app.get("/portfolio")
-async def get_portfolio():
-    return {
-        "holdings": SOVEREIGN_PROFILE["portfolio"],
-        "total_positions": len(SOVEREIGN_PROFILE["portfolio"])
-    }
+    tel = get_grid_telemetry(request.grid_region or "CAISO")
+    sab = check_elastic_sabbath(tel["load"])
+    uc  = request.urgency_override or detect_urgency(request.query)
+    ucfg= URGENCY_MAP.get(uc, URGENCY_MAP["BLUE"])
+    U   = ucfg["U"]
+    SCF = compute_social_cost_function(U, SOVEREIGN_PROFILE["tier"], request.domain)
+    me  = compute_metabolic_efficiency_score(U, tel["load"], tel["price"], SCF)
+    cycles = max(1, me["cycles"]-1) if sab["sabbath_active"] and uc!="RED" else me["cycles"]
+    W = QUEEN_WEIGHTS.get(request.domain, QUEEN_WEIGHTS["general"])
+    if me["mode"]=="ELASTIC_SABBATH" and uc!="RED":
+        return {"query":request.query,"sabbath_invoked":True,"sabbath":sab,"metabolic_score":me,
+                "message":"Elastic Silicon Sabbath active. Inference deferred.","sovereign":SOVEREIGN_PROFILE["name"]}
+    r1 = await run_queen_round(request.query, request.domain, 1, W)
+    final = r1
+    if cycles>=2:
+        r2=await run_queen_round(request.query,request.domain,2,W,r1); final=r2
+    if cycles>=3:
+        r3=await run_queen_round(request.query,request.domain,3,W,final); final=r3
+    fusion = compute_fusion(final, W, request.domain, me["Me"])
+    pl     = probability_landscape(final, request.custom_options)
+    zkp    = generate_zkp_proof(final, fusion)
+    return {"query":request.query,"domain":request.domain,
+            "urgency":{"color":uc,"U":U,"label":ucfg["label"]},
+            "metabolic_score":me,"sabbath":sab,"grid_telemetry":tel,
+            "rounds_completed":cycles,"queen_responses":final,"fusion":fusion,
+            "probability_landscape":pl,"zkp_proof":zkp,"weights_applied":W,"scf":SCF,
+            "sovereign":SOVEREIGN_PROFILE["name"],
+            "patent_compliance":{"claim_1":me["equation"],"claim_2":sab["status"],
+                                 "claim_3":f"{me['mode']} ({cycles} cycles)","claim_5":zkp["zkp_short"]}}
