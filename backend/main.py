@@ -163,7 +163,31 @@ async def run_queen_round(query, domain, round_num, weights, prev=None):
     )
     return {"alethea":str(results[0]),"sophia":str(results[1]),"eirene":str(results[2]),"kairos":str(results[3])}
 
-def compute_fusion(responses, weights, domain, Me):
+async def synthesize_verdict(query, responses, domain, status, confidence):
+    active = {k:v for k,v in responses.items() if v and "unavailable" not in v.lower()}
+    if not active:
+        return "Insufficient lineage data for sovereign verdict."
+    combined = "\n\n".join([f"{k.upper()}: {v}" for k,v in active.items()])
+    prompt = (
+        f"You are the Sovereign Oracle synthesis engine. Four AI lineages have analyzed this query:\n"
+        f"Query: {query}\n\nLineage responses:\n{combined}\n\n"
+        f"Write a clear, direct, plain-English sovereign verdict in 3-5 sentences. "
+        f"Synthesize the key points of agreement. Give a specific actionable recommendation. "
+        f"Do not mention the queens or lineages by name. Speak as one unified voice."
+    )
+    try:
+        import anthropic
+        client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        r = await client.messages.create(
+            model="claude-opus-4-6", max_tokens=500,
+            system=f"You are the Sovereign Oracle fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
+            messages=[{"role":"user","content":prompt}]
+        )
+        return r.content[0].text
+    except Exception as e:
+        return f"Consensus reached at {confidence*100:.1f}% confidence. See individual lineage responses for full analysis."
+
+async def compute_fusion(responses, weights, domain, Me, query=""):
     all_text = " ".join([v for v in responses.values() if v and "unavailable" not in v.lower()])
     agreements = []
     if "risk" in all_text.lower(): agreements.append("Risk convergent")
@@ -178,9 +202,8 @@ def compute_fusion(responses, weights, domain, Me):
     elif n>=3 and conf>0.80: status="CONSENSUS"
     elif n>=2: status,conf="PARTIAL",conf*0.85
     else: status,conf="INSUFFICIENT",0.0
-    ans = f"{n}/4 lineages, domain={domain}, Me={Me:.3f}: {status} at {conf*100:.1f}%. "
-    if agreements: ans += "Convergence: "+"; ".join(agreements)+"."
-    return {"status":status,"confidence":round(conf,3),"fusion_answer":ans,"agreements":agreements,
+    verdict = await synthesize_verdict(query, responses, domain, status, conf)
+    return {"status":status,"confidence":round(conf,3),"fusion_answer":verdict,"agreements":agreements,
             "queens_active":n,"weights_applied":{k:weights.get(k,0.25) for k in active}}
 
 def probability_landscape(responses, custom=None):
@@ -241,7 +264,7 @@ async def oracle_query(request: QueryRequest):
         r2=await run_queen_round(request.query,request.domain,2,W,r1); final=r2
     if cycles>=3:
         r3=await run_queen_round(request.query,request.domain,3,W,final); final=r3
-    fusion = compute_fusion(final, W, request.domain, me["Me"])
+    fusion = await compute_fusion(final, W, request.domain, me["Me"], request.query)
     pl     = probability_landscape(final, request.custom_options)
     zkp    = generate_zkp_proof(final, fusion)
     return {"query":request.query,"domain":request.domain,
