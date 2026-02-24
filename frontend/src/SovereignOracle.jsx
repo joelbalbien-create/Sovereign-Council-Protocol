@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const URGENCY_CONFIG = {
   RED: { label: "SOVEREIGN OVERRIDE", color: "#ff2020", glow: "rgba(255,32,32,0.4)", cycles: 1 },
@@ -190,6 +190,9 @@ export default function SovereignOracle() {
   const [result, setResult] = useState(null);
   const [showQueens, setShowQueens] = useState(true);
   const [dots, setDots] = useState("");
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     if (loading) {
@@ -200,17 +203,39 @@ export default function SovereignOracle() {
     }
   }, [loading]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAttachedFile(file);
+      setFileName(file.name);
+    }
+  };
+
   const handleQuery = async () => {
     if (!query.trim() || loading) return;
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch("http://sovereign-oracle.local:8002/oracle/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim(), domain, urgency_override: urgency }),
-      });
-      const data = await response.json();
+      let data;
+      if (attachedFile) {
+        const formData = new FormData();
+        formData.append("query", query.trim());
+        formData.append("domain", domain);
+        formData.append("urgency_override", urgency);
+        formData.append("file", attachedFile);
+        const response = await fetch("http://sovereign-oracle.local:8002/oracle/upload", {
+          method: "POST",
+          body: formData,
+        });
+        data = await response.json();
+      } else {
+        const response = await fetch("http://sovereign-oracle.local:8002/oracle/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: query.trim(), domain, urgency_override: urgency }),
+        });
+        data = await response.json();
+      }
       setResult(data);
     } catch (err) {
       setResult({ error: "Unable to reach Sovereign Oracle backend." });
@@ -313,7 +338,31 @@ export default function SovereignOracle() {
             display: "flex", justifyContent: "space-between", alignItems: "center",
             borderTop: "1px solid #111",
           }}>
-            <span style={{ color: "#2a2a2a", fontFamily: "monospace", fontSize: 8, letterSpacing: 2 }}>CMD+ENTER TO INVOKE</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".pdf,.docx,.jpg,.jpeg,.png"
+                style={{ display: "none" }}
+              />
+              <button onClick={() => fileInputRef.current.click()} style={{
+                padding: "6px 12px",
+                background: attachedFile ? "#e8f5e9" : "#f5f5f0",
+                border: `1px solid ${attachedFile ? "#4caf50" : "#cccccc"}`,
+                borderRadius: 4, color: attachedFile ? "#2e7d32" : "#888888",
+                fontFamily: "monospace", fontSize: 9, letterSpacing: 2,
+                cursor: "pointer",
+              }}>
+                {attachedFile ? `📎 ${fileName}` : "📎 ATTACH FILE"}
+              </button>
+              {attachedFile && (
+                <button onClick={() => { setAttachedFile(null); setFileName(""); }} style={{
+                  background: "transparent", border: "none",
+                  color: "#cc0000", fontSize: 14, cursor: "pointer",
+                }}>✕</button>
+              )}
+            </div>
             <button onClick={handleQuery} disabled={loading || !query.trim()} style={{
               padding: "8px 24px",
               background: loading ? "transparent" : urgencyConfig.color,

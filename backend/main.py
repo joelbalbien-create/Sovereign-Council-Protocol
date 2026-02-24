@@ -27,6 +27,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncio, os, time, hashlib, random
 from dotenv import load_dotenv
+from fastapi import File, UploadFile, Form
+import io
+import base64
 
 load_dotenv()
 
@@ -89,6 +92,39 @@ DOMAIN_CONFIGS = {
         "kairos":  "You are Kairos, ethical philosopher. Provide wisdom and long-term thinking."
     }
 }
+
+async def extract_file_content(file: UploadFile) -> str:
+    """Extract text content from PDF, DOCX, or image files."""
+    filename = file.filename.lower()
+    file_bytes = await file.read()
+    
+    try:
+        if filename.endswith('.pdf'):
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted + "\n"
+            return f"[PDF Document: {file.filename}]\n{text}"
+        
+        elif filename.endswith('.docx'):
+            from docx import Document as DocxDocument
+            doc = DocxDocument(io.BytesIO(file_bytes))
+            text = "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
+            return f"[Word Document: {file.filename}]\n{text}"
+        
+        elif filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+            b64 = base64.b64encode(file_bytes).decode('utf-8')
+            ext = filename.split('.')[-1]
+            return f"[IMAGE:{ext}:{b64}]"
+        
+        else:
+            return f"[File: {file.filename} — unsupported format]"
+    
+    except Exception as e:
+        return f"[Error extracting {file.filename}: {str(e)}]"
 
 def get_grid_telemetry(region="CAISO"):
     grid = GRID_REGIONS.get(region, GRID_REGIONS["CAISO"]).copy()
@@ -265,6 +301,44 @@ async def get_portfolio(): return {"holdings":SOVEREIGN_PROFILE["portfolio"]}
 async def grid_status(region:str="CAISO"):
     t=get_grid_telemetry(region); s=check_elastic_sabbath(t["load"])
     return {"telemetry":t,"sabbath":s,"rest_constant":SABBATH_REST_CONSTANT}
+
+@app.post("/oracle/upload")
+async def oracle_upload(
+    query: str = Form(...),
+    domain: str = Form("general"),
+    urgency_override: str = Form("BLUE"),
+    grid_region: str = Form("CAISO"),
+    file: UploadFile = File(...)
+):
+    """Accept file upload with query and route to oracle engine."""
+    file_content = await extract_file_content(file)
+    
+    # Check if image
+    is_image = file_content.startswith("[IMAGE:")
+    
+    if is_image:
+        # Extract base64 and mime type for vision-capable queens
+        parts = file_content.split(":")
+        ext = parts[1]
+        b64 = parts[2].rstrip("]")
+        mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
+        enhanced_query = f"{query}\n\n[Image attached — analyze the visual content]"
+        image_data = {"b64": b64, "mime": mime}
+    else:
+        enhanced_query = f"{query}\n\nDocument content:\n{file_content[:3000]}"
+        image_data = None
+
+    request = QueryRequest(
+        query=enhanced_query,
+        domain=domain,
+        urgency_override=urgency_override,
+        grid_region=grid_region
+    )
+    
+    result = await oracle_query(request)
+    result["file_attached"] = file.filename
+    result["file_type"] = file.filename.split(".")[-1].upper()
+    return result
 
 @app.post("/oracle/query")
 async def oracle_query(request: QueryRequest):
