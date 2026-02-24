@@ -47,9 +47,9 @@ function QueenCard({ queen, response, active, loading }) {
   const hasResponse = response && !loading;
   return (
     <div style={{
-      border: `1px solid ${active ? queen.color + "60" : "#1e1e1e"}`,
+      border: `1px solid ${active ? queen.color + "60" : "#cccccc"}`,
       borderRadius: 8, padding: "16px",
-      background: active ? `${queen.color}08` : "#0a0a0a",
+      background: active ? `${queen.color}08` : "#f9f9f9",
       transition: "all 0.5s ease", position: "relative", overflow: "hidden",
     }}>
       {active && (
@@ -79,7 +79,7 @@ function QueenCard({ queen, response, active, loading }) {
       )}
       {hasResponse && (
         <div style={{
-          color: isUnavailable ? "#444" : "#b0b0b0",
+          color: isUnavailable ? "#444" : "#333333",
           fontSize: 11, lineHeight: 1.7,
           fontFamily: isUnavailable ? "monospace" : "Georgia, serif",
           maxHeight: 180, overflowY: "auto",
@@ -138,16 +138,15 @@ function FusionDisplay({ fusion }) {
         </div>
       </div>
       <div style={{
-        background: `${statusColor}10`,
-        border: `1px solid ${statusColor}30`,
-        borderLeft: `4px solid ${statusColor}`,
+        background: "#ffffff",
+        border: `2px solid ${statusColor}`,
         borderRadius: 6, padding: "16px 20px", marginTop: 8,
       }}>
-        <div style={{ color: statusColor, fontFamily: "monospace", fontSize: 9, letterSpacing: 3, marginBottom: 8 }}>
+        <div style={{ color: statusColor, fontFamily: "monospace", fontSize: 11, letterSpacing: 3, marginBottom: 8, fontWeight: "bold" }}>
           SOVEREIGN VERDICT
         </div>
         <p style={{
-          color: "#e0e0e0", fontSize: 14, lineHeight: 1.9,
+          color: "#000000", fontSize: 15, lineHeight: 2.0,
           fontFamily: "Georgia, serif", margin: 0, fontWeight: "normal",
         }}>
           {fusion.fusion_answer}
@@ -223,7 +222,7 @@ export default function SovereignOracle() {
   const urgencyConfig = URGENCY_CONFIG[urgency];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050505", color: "#e0e0e0", fontFamily: "Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f5f5f0", color: "#dddddd", fontFamily: "Georgia, serif" }}>
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes pulse { 0%,100%{transform:scale(1);opacity:0.4} 50%{transform:scale(2.5);opacity:0} }
@@ -238,10 +237,10 @@ export default function SovereignOracle() {
       <div style={{
         borderBottom: "1px solid #111", padding: "20px 32px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, background: "#050505", zIndex: 100,
+        position: "sticky", top: 0, background: "#f5f5f0", zIndex: 100,
       }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: 6, color: "#e0e0e0", fontFamily: "Georgia, serif" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: 6, color: "#dddddd", fontFamily: "Georgia, serif" }}>
             SOVEREIGN ORACLE
           </h1>
           <div style={{ color: "#333", fontFamily: "monospace", fontSize: 9, letterSpacing: 4, marginTop: 2 }}>
@@ -264,8 +263,8 @@ export default function SovereignOracle() {
             <button key={d.id} onClick={() => setDomain(d.id)} style={{
               padding: "6px 16px",
               background: domain === d.id ? "#111" : "transparent",
-              border: `1px solid ${domain === d.id ? "#333" : "#1a1a1a"}`,
-              borderRadius: 4, color: domain === d.id ? "#e0e0e0" : "#444",
+              border: `1px solid ${domain === d.id ? "#333" : "#dddddd"}`,
+              borderRadius: 4, color: domain === d.id ? "#dddddd" : "#444",
               fontFamily: "monospace", fontSize: 9, letterSpacing: 3,
             }}>
               {d.icon} {d.label}
@@ -278,7 +277,7 @@ export default function SovereignOracle() {
             <button key={key} onClick={() => setUrgency(key)} style={{
               padding: "4px 12px",
               background: urgency === key ? `${val.color}15` : "transparent",
-              border: `1px solid ${urgency === key ? val.color + "60" : "#1a1a1a"}`,
+              border: `1px solid ${urgency === key ? val.color + "60" : "#dddddd"}`,
               borderRadius: 3, color: urgency === key ? val.color : "#333",
               fontFamily: "monospace", fontSize: 8, letterSpacing: 2,
               boxShadow: urgency === key ? `0 0 12px ${val.glow}` : "none",
@@ -292,7 +291,7 @@ export default function SovereignOracle() {
         </div>
 
         <div style={{
-          border: `1px solid ${loading ? urgencyConfig.color + "40" : "#1e1e1e"}`,
+          border: `1px solid ${loading ? urgencyConfig.color + "40" : "#cccccc"}`,
           borderRadius: 8, overflow: "hidden",
           boxShadow: loading ? `0 0 20px ${urgencyConfig.glow}` : "none",
           marginBottom: 12,
@@ -304,13 +303,13 @@ export default function SovereignOracle() {
             placeholder="Address the Oracle..."
             rows={4}
             style={{
-              width: "100%", background: "#080808", color: "#d0d0d0",
+              width: "100%", background: "#ffffff", color: "#222222",
               padding: "16px 20px", fontFamily: "Georgia, serif",
               fontSize: 14, lineHeight: 1.7, resize: "none", border: "none",
             }}
           />
           <div style={{
-            background: "#080808", padding: "10px 16px",
+            background: "#ffffff", padding: "10px 16px",
             display: "flex", justifyContent: "space-between", alignItems: "center",
             borderTop: "1px solid #111",
           }}>
