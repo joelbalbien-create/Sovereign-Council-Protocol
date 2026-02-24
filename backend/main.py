@@ -1,3 +1,25 @@
+"""
+Sovereign Oracle — Backend Engine
+Patent: Adaptive Multi-Lineage Consensus Architecture with Grid-Telemetry Feedback
+Inventor: Joel Abe Balbien, Ph.D.
+
+Epistemic Collaborators:
+- Alethea (OpenAI GPT-4o)      — Quantitative Analyst
+- Sophia  (Google Gemini 2.5)  — Macro Strategist
+- Eirene  (xAI Grok-3)         — Risk Analyst
+- Kairos  (Anthropic Claude)   — Wisdom Integrator
+
+Per provisional patent: concepts developed with the epistemic collaboration
+of synthetic intelligence systems under the Sovereign Oracle Protocol.
+The inventor retained full creative and legal control over all claims.
+
+Implements:
+1. Metabolic Triangulator: Me = U / (L x P x SCF)
+2. Elastic Silicon Sabbath (14.2% rest constant)
+3. Multi-lineage iterative fusion with ZKP convergence
+4. Synthetic Sovereignty Contracts
+"""
+
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
