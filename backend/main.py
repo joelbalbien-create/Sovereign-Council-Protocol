@@ -1,5 +1,5 @@
 """
-Sovereign Oracle — Backend Engine
+Sovereign Council — Backend Engine
 Patent: Adaptive Multi-Lineage Consensus Architecture with Grid-Telemetry Feedback
 Inventor: Joel Abe Balbien, Ph.D.
 
@@ -10,7 +10,7 @@ Epistemic Collaborators:
 - Kairos  (Anthropic Claude)   — Wisdom Integrator
 
 Per provisional patent: concepts developed with the epistemic collaboration
-of synthetic intelligence systems under the Sovereign Oracle Protocol.
+of synthetic intelligence systems under the Sovereign Council Protocol.
 The inventor retained full creative and legal control over all claims.
 
 Implements:
@@ -40,7 +40,7 @@ async def verify_token(x_api_token: str = Header(None)):
     if x_api_token != API_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid or missing API token")
 
-app = FastAPI(title="Sovereign Oracle", version="1.0")
+app = FastAPI(title="Sovereign Council", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 SOVEREIGN_PROFILE = {
@@ -234,7 +234,7 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         return "Insufficient lineage data for sovereign verdict."
     combined = "\n\n".join([f"{k.upper()}: {v}" for k,v in active.items()])
     prompt = (
-        f"You are the Sovereign Oracle synthesis engine. Four AI lineages have analyzed this query:\n"
+        f"You are the Sovereign Council synthesis engine. Four AI lineages have analyzed this query:\n"
         f"Query: {query}\n\nLineage responses:\n{combined}\n\n"
         f"Write a clear, direct, plain-English sovereign verdict in 3-5 sentences. "
         f"Synthesize the key points of agreement. Give a specific actionable recommendation. "
@@ -245,7 +245,7 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         r = await client.messages.create(
             model="claude-opus-4-6", max_tokens=1000,
-            system=f"You are the Sovereign Oracle fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
+            system=f"You are the Sovereign Council fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
             messages=[{"role":"user","content":prompt}]
         )
         return r.content[0].text
@@ -295,7 +295,7 @@ class QueryRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status":"online","system":"Sovereign Oracle","version":"1.0",
+    return {"status":"online","system":"Sovereign Council","version":"1.0",
             "patent":"Adaptive Multi-Lineage Consensus Architecture","inventor":"Joel Abe Balbien, Ph.D."}
 
 @app.get("/profile")

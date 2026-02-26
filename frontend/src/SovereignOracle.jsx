@@ -319,10 +319,10 @@ export default function SovereignOracle() {
         formData.append("domain", domain);
         formData.append("urgency_override", urgency);
         formData.append("file", attachedFile);
-        const response = await fetch("http://sovereign-oracle.local:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
+        const response = await fetch("http://sovereign-council.local:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
         data = await response.json();
       } else {
-        const response = await fetch("http://sovereign-oracle.local:8002/oracle/query", {
+        const response = await fetch("http://sovereign-council.local:8002/oracle/query", {
           method:"POST",
           headers:{ "Content-Type":"application/json", "x-api-token": API_TOKEN },
           body:JSON.stringify({ query:query.trim(), domain, urgency_override:urgency }),
@@ -331,7 +331,7 @@ export default function SovereignOracle() {
       }
       setResult(data);
     } catch(err) {
-      setResult({ error:"Unable to reach Sovereign Oracle backend." });
+      setResult({ error:"Unable to reach Sovereign Council backend." });
     } finally {
       setLoading(false);
     }
@@ -376,7 +376,7 @@ export default function SovereignOracle() {
               backgroundSize:"200% 100%", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
               backgroundClip:"text", animation:"gold-shimmer 4s ease infinite",
             }}>
-              SOVEREIGN ORACLE
+              SOVEREIGN COUNCIL
             </h1>
             <p style={{ fontFamily:"'Cinzel',serif", fontSize:11, color:"var(--ice)", opacity:0.7, letterSpacing:"0.25em", marginTop:6 }}>
               JOEL BALBIEN · TIER 4 SOVEREIGN · FOUR LINEAGE FUSION

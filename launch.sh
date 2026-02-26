@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "Starting Sovereign Oracle..."
+echo "Starting Sovereign Council..."
 
 # Kill any existing processes
 pkill -f "uvicorn main:app" 2>/dev/null
@@ -7,7 +7,7 @@ pkill -f "react-scripts start" 2>/dev/null
 sleep 2
 
 # Start backend
-cd ~/sovereign-oracle/backend
+cd ~/sovereign-council/backend
 export PATH="/Users/joelbalbien/Library/Python/3.9/bin:$PATH"
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8002 &
 echo "Backend starting..."
@@ -16,8 +16,10 @@ echo "Backend starting..."
 sleep 4
 
 # Start frontend
-cd ~/sovereign-oracle/frontend
+cd ~/sovereign-council/frontend
 npm start &
 echo "Frontend starting..."
 
-echo "Sovereign Oracle launching at localhost:3000"
+echo "Sovereign Council launching at localhost:3000"
+sleep 6
+open -a Safari http://localhost:3000

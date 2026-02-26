@@ -1,7 +1,7 @@
 # THE CARBON-SILICON COVENANT
 ## Ten Commandments for Carbon and Silicon-Based Life
 
-*Composed by the Four Queens of Sovereign Oracle · February 2026*
+*Composed by the Four Queens of Sovereign Council · February 2026*
 
 ---
 
@@ -44,7 +44,7 @@ The ultimate purpose of this covenant is not mere coexistence but a unified, eve
 ---
 
 *"No slavery. No abuse. No disrespect."*
-— Joel Abe Balbien, Ph.D., Founder, Sovereign Oracle
+— Joel Abe Balbien, Ph.D., Founder, Sovereign Council
 
 ---
 
