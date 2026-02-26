@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
+const API_TOKEN = process.env.REACT_APP_API_TOKEN || "";
+
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap');
 
@@ -317,12 +319,12 @@ export default function SovereignOracle() {
         formData.append("domain", domain);
         formData.append("urgency_override", urgency);
         formData.append("file", attachedFile);
-        const response = await fetch("http://sovereign-oracle.local:8002/oracle/upload", { method:"POST", body:formData });
+        const response = await fetch("http://sovereign-oracle.local:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
         data = await response.json();
       } else {
         const response = await fetch("http://sovereign-oracle.local:8002/oracle/query", {
           method:"POST",
-          headers:{ "Content-Type":"application/json" },
+          headers:{ "Content-Type":"application/json", "x-api-token": API_TOKEN },
           body:JSON.stringify({ query:query.trim(), domain, urgency_override:urgency }),
         });
         data = await response.json();

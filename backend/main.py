@@ -21,17 +21,24 @@ Implements:
 """
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, File, UploadFile, Form, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 import asyncio, os, time, hashlib, random
 from dotenv import load_dotenv
-from fastapi import File, UploadFile, Form
 import io
 import base64
 
 load_dotenv()
+
+API_TOKEN = os.getenv("API_TOKEN", "")
+
+async def verify_token(x_api_token: str = Header(None)):
+    if not API_TOKEN:
+        return
+    if x_api_token != API_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid or missing API token")
 
 app = FastAPI(title="Sovereign Oracle", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -237,7 +244,7 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         r = await client.messages.create(
-            model="claude-opus-4-6", max_tokens=500,
+            model="claude-opus-4-6", max_tokens=1000,
             system=f"You are the Sovereign Oracle fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
             messages=[{"role":"user","content":prompt}]
         )
@@ -308,7 +315,8 @@ async def oracle_upload(
     domain: str = Form("general"),
     urgency_override: str = Form("BLUE"),
     grid_region: str = Form("CAISO"),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    token: str = Depends(verify_token)
 ):
     """Accept file upload with query and route to oracle engine."""
     file_content = await extract_file_content(file)
@@ -341,7 +349,7 @@ async def oracle_upload(
     return result
 
 @app.post("/oracle/query")
-async def oracle_query(request: QueryRequest):
+async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
     tel = get_grid_telemetry(request.grid_region or "CAISO")
     sab = check_elastic_sabbath(tel["load"])
     uc  = request.urgency_override or detect_urgency(request.query)
