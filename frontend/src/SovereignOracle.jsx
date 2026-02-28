@@ -319,10 +319,10 @@ export default function SovereignOracle() {
         formData.append("domain", domain);
         formData.append("urgency_override", urgency);
         formData.append("file", attachedFile);
-        const response = await fetch("http://sovereign-council.local:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
+        const response = await fetch("http://localhost:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
         data = await response.json();
       } else {
-        const response = await fetch("http://sovereign-council.local:8002/oracle/query", {
+        const response = await fetch("http://localhost:8002/oracle/query", {
           method:"POST",
           headers:{ "Content-Type":"application/json", "x-api-token": API_TOKEN },
           body:JSON.stringify({ query:query.trim(), domain, urgency_override:urgency }),

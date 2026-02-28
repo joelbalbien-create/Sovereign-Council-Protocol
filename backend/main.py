@@ -25,7 +25,7 @@ from fastapi import FastAPI, Depends, File, UploadFile, Form, Header, HTTPExcept
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-import asyncio, os, time, hashlib, random
+import asyncio, os, time, hashlib, random, requests
 from dotenv import load_dotenv
 import io
 import base64
@@ -347,6 +347,41 @@ async def oracle_upload(
     result["file_attached"] = file.filename
     result["file_type"] = file.filename.split(".")[-1].upper()
     return result
+
+
+async def fetch_url_content(url: str) -> str:
+    """Fetch and extract text content from a URL for queen analysis."""
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        }
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        text = resp.text
+        # Strip HTML tags simply
+        import re
+        text = re.sub(r'<style[^>]*>.*?</style>', ' ', text, flags=re.DOTALL)
+        text = re.sub(r'<script[^>]*>.*?</script>', ' ', text, flags=re.DOTALL)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        # Return first 3000 chars to avoid token overflow
+        return text[:3000]
+    except Exception as e:
+        return f"[Could not fetch {url}: {str(e)}]"
+
+def extract_urls(text: str) -> list:
+    """Extract URLs from query text."""
+    import re
+    pattern = r'https?://[\w\-._~:/?#\[\]@!$&\'()*+,;=%]+'
+    urls = re.findall(pattern, text)
+    # Also check for www. without http
+    www_pattern = r'www\.[\w\-]+\.[\w\-]+(?:/[\S]*)?'
+    www_urls = re.findall(www_pattern, text)
+    for url in www_urls:
+        full = 'https://' + url
+        if full not in urls:
+            urls.append(full)
+    return urls[:3]  # Max 3 URLs per query
 
 @app.post("/oracle/query")
 async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
