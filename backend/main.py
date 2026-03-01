@@ -43,11 +43,14 @@ async def verify_token(x_api_token: str = Header(None)):
 app = FastAPI(title="Sovereign Council", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-SOVEREIGN_PROFILE = {
-    "name": "Joel Balbien", "age": 71, "tier": 4,
-    "portfolio": {"UTWO":46,"DVY":18,"SPYG":11,"CVX":3,"XOM":3,"CTRA":2,"BOTZ":4,"IEMG":5,"GLD":1.5,"USO":1.5,"AAPL":3,"AMZN":4,"GOOG":4,"CASH":10},
-    "domains": ["wealth","health","longevity"], "health_network": "UCLA Health"
-}
+# Load sovereign profile from secure config file (not in source code)
+import json as _json
+_profile_path = os.path.join(os.path.dirname(__file__), "profile.json")
+if os.path.exists(_profile_path):
+    SOVEREIGN_PROFILE = _json.load(open(_profile_path))
+else:
+    SOVEREIGN_PROFILE = {"name": "Sovereign", "age": 0, "tier": 1, "portfolio": {}, "domains": [], "health_network": ""}
+    print("WARNING: profile.json not found - using empty profile")
 
 GRID_REGIONS = {
     "CAISO":   {"load":0.72,"price":0.14},
@@ -138,6 +141,7 @@ def get_grid_telemetry(region="CAISO"):
     grid["load"] = min(0.99, max(0.20, grid["load"] + random.uniform(-0.05, 0.05)))
     grid["price"] = max(0.05, grid["price"] + random.uniform(-0.01, 0.02))
     grid["timestamp"] = time.time()
+    grid["data_note"] = "Simulated grid data for patent demonstration - not real-time telemetry"
     grid["region"] = region
     return grid
 
@@ -166,7 +170,7 @@ def check_elastic_sabbath(grid_load):
 def generate_zkp_proof(responses, fusion):
     data = str({"r":{k:v[:50] for k,v in responses.items()},"s":fusion.get("status"),"t":time.time()})
     h = hashlib.sha256(data.encode()).hexdigest()
-    return {"zkp_hash":h,"zkp_short":f"{h[:8]}...{h[-8:]}","session_id":f"SO-{int(time.time())}-{h[:6]}","verified":True}
+    return {"zkp_hash":h,"zkp_short":f"{h[:8]}...{h[-8:]}","session_id":f"SO-{int(time.time())}-{h[:6]}","verified":True,"audit_note":"SHA-256 integrity hash - not a cryptographic zero-knowledge proof"}
 
 def detect_urgency(query):
     q = query.lower()
@@ -219,14 +223,49 @@ async def run_queen_round(query, domain, round_num, weights, prev=None):
         prompt = f"{ctx}\nQuery: {query}\nPrevious responses:\n{prevtext}\nRefine your analysis."
     else:
         prompt = f"{ctx}\nQuery: {query}\nProvide expert analysis in 3-4 sentences. Be specific."
-    results = await asyncio.gather(
-        call_openai(prompt, configs["alethea"]),
-        call_gemini(prompt, configs["sophia"]),
-        call_grok(prompt, configs["eirene"]),
-        call_anthropic(prompt, configs["kairos"]),
-        return_exceptions=True
-    )
-    return {"alethea":str(results[0]),"sophia":str(results[1]),"eirene":str(results[2]),"kairos":str(results[3])}
+    # Call all four queens with 25 second timeout each
+    async def call_with_timeout(fn, prompt, system, timeout=25):
+        try:
+            return await asyncio.wait_for(fn(prompt, system), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None
+        except Exception as e:
+            return None
+
+    queen_fns = [
+        ("alethea", call_openai,    configs["alethea"]),
+        ("sophia",  call_gemini,    configs["sophia"]),
+        ("eirene",  call_grok,      configs["eirene"]),
+        ("kairos",  call_anthropic, configs["kairos"]),
+    ]
+
+    results = await asyncio.gather(*[
+        call_with_timeout(fn, prompt, sys) for _, fn, sys in queen_fns
+    ])
+
+    responses = {name: result for (name, _, __), result in zip(queen_fns, results)}
+
+    # SAFETY FEATURE: Minimum 2 queens must respond
+    # If fewer than 2 responded, retry 1 random failed queen
+    responded = {k: v for k, v in responses.items() if v and "unavailable" not in str(v).lower()}
+    if len(responded) < 2:
+        import random
+        failed = [(name, fn, sys) for (name, fn, sys), result in zip(queen_fns, results)
+                  if not result or "unavailable" in str(result).lower()]
+        if failed:
+            # Pick one random failed queen and retry with extra time
+            retry_name, retry_fn, retry_sys = random.choice(failed)
+            retry_result = await call_with_timeout(retry_fn, prompt, retry_sys, timeout=30)
+            if retry_result:
+                responses[retry_name] = retry_result
+                responded[retry_name] = retry_result
+
+    # Mark non-responding queens
+    for name in ["alethea", "sophia", "eirene", "kairos"]:
+        if not responses.get(name) or "unavailable" in str(responses.get(name, "")).lower():
+            responses[name] = f"{name.capitalize()} unavailable: timeout"
+
+    return responses
 
 async def synthesize_verdict(query, responses, domain, status, confidence):
     active = {k:v for k,v in responses.items() if v and "unavailable" not in v.lower()}
@@ -299,10 +338,10 @@ async def health():
             "patent":"Adaptive Multi-Lineage Consensus Architecture","inventor":"Joel Abe Balbien, Ph.D."}
 
 @app.get("/profile")
-async def get_profile(): return SOVEREIGN_PROFILE
+async def get_profile(token=Depends(verify_token)): return SOVEREIGN_PROFILE
 
 @app.get("/portfolio")
-async def get_portfolio(): return {"holdings":SOVEREIGN_PROFILE["portfolio"]}
+async def get_portfolio(token=Depends(verify_token)): return {"holdings":SOVEREIGN_PROFILE["portfolio"]}
 
 @app.get("/grid/{region}")
 async def grid_status(region:str="CAISO"):
@@ -410,7 +449,8 @@ async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
             "urgency":{"color":uc,"U":U,"label":ucfg["label"]},
             "metabolic_score":me,"sabbath":sab,"grid_telemetry":tel,
             "rounds_completed":cycles,"queen_responses":final,"fusion":fusion,
-            "probability_landscape":pl,"zkp_proof":zkp,"weights_applied":W,"scf":SCF,
+            "probability_landscape_note": "Illustrative ranges only - not derived from statistical analysis",
+    "probability_landscape":pl,"zkp_proof":zkp,"weights_applied":W,"scf":SCF,
             "sovereign":SOVEREIGN_PROFILE["name"],
             "patent_compliance":{"claim_1":me["equation"],"claim_2":sab["status"],
                                  "claim_3":f"{me['mode']} ({cycles} cycles)","claim_5":zkp["zkp_short"]}}
