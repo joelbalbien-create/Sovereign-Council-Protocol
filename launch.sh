@@ -9,7 +9,7 @@ sleep 2
 # Start backend
 cd ~/sovereign-council/backend
 export PATH="/Users/joelbalbien/Library/Python/3.9/bin:$PATH"
-python3 -m uvicorn main:app --host 127.0.0.1 --port 8002 &
+python3 -m uvicorn main:app --host 192.168.1.81 --port 8002 &
 echo "Backend starting..."
 
 # Wait for backend
