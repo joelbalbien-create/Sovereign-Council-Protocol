@@ -215,16 +215,30 @@ async def call_grok(prompt, system):
         return r.choices[0].message.content
     except Exception as e: return f"Eirene unavailable: {e}"
 
-async def run_queen_round(query, domain, round_num, weights, prev=None):
+async def run_queen_round(query, domain, round_num, weights, prev=None, phase=None):
     configs = DOMAIN_CONFIGS.get(domain, DOMAIN_CONFIGS["general"])
-    ctx = f"Sovereign: Joel Balbien age 71 Tier 4. Domain: {domain}. Round {round_num}."
-    if prev:
+    ctx = f"Sovereign: Joel Balbien age 71 Tier 4. Domain: {domain}."
+
+    if phase == "quadra_critical" or (phase is None and prev is None):
+        # Phase 1: Pure independent analysis - no visibility into other queens
+        prompt = f"{ctx}\nQuery: {query}\nProvide your independent expert analysis in 2-3 sentences. Be specific and direct. No hedging."
+
+    elif phase == "reactive":
+        # Phase 2: Must show genuine transformation - not just agreement (keep brief)
+        prevtext = "\n".join([f"{k.upper()}: {v[:150]}" for k,v in prev.items() if v and "unavailable" not in v.lower()])
+        prompt = f"{ctx}\nQuery: {query}\n\nCouncil said:\n{prevtext}\n\nIn 2 sentences: what genuinely changed your thinking, and how did your position shift? If unchanged, state why in one sentence."
+
+    elif phase == "convergent_plurality":
+        # Phase 3: Synthesize actionable wisdom while preserving tensions (keep brief)
+        prevtext = "\n".join([f"{k.upper()}: {v[:150]}" for k,v in prev.items() if v and "unavailable" not in v.lower()])
+        prompt = f"{ctx}\nQuery: {query}\n\nFinal positions:\n{prevtext}\n\nIn 3 sentences: (1) emergent insight no single voice could produce, (2) one actionable recommendation, (3) any unresolved tension to preserve."
+
+    else:
+        # Legacy fallback
         prevtext = "\n".join([f"{k}: {v[:250]}" for k,v in prev.items() if v])
         prompt = f"{ctx}\nQuery: {query}\nPrevious responses:\n{prevtext}\nRefine your analysis."
-    else:
-        prompt = f"{ctx}\nQuery: {query}\nProvide expert analysis in 3-4 sentences. Be specific."
     # Call all four queens with 25 second timeout each
-    async def call_with_timeout(fn, prompt, system, timeout=25):
+    async def call_with_timeout(fn, prompt, system, timeout=20):
         try:
             return await asyncio.wait_for(fn(prompt, system), timeout=timeout)
         except asyncio.TimeoutError:
@@ -273,11 +287,14 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         return "Insufficient lineage data for sovereign verdict."
     combined = "\n\n".join([f"{k.upper()}: {v}" for k,v in active.items()])
     prompt = (
-        f"You are the Sovereign Council synthesis engine. Four AI lineages have analyzed this query:\n"
-        f"Query: {query}\n\nLineage responses:\n{combined}\n\n"
-        f"Write a clear, direct, plain-English sovereign verdict in 3-5 sentences. "
-        f"Synthesize the key points of agreement. Give a specific actionable recommendation. "
-        f"Do not mention the queens or lineages by name. Speak as one unified voice."
+        f"You are the Sovereign Council synthesis engine operating under the Convergent Plurality protocol.\n"
+        f"Four AI lineages have completed three phases of analysis — Quadra-Critical, Reactive, and Convergent Plurality.\n"
+        f"Query: {query}\n\nFinal lineage positions after three phases:\n{combined}\n\n"
+        f"Write a Sovereign Verdict in this exact structure:\n"
+        f"1. EMERGENT INSIGHT: State one insight that arose from the interaction of perspectives that no single voice could have produced alone.\n"
+        f"2. ACTIONABLE WISDOM: Give one specific, concrete recommendation.\n"
+        f"3. UNRESOLVED TENSIONS: Name any genuine disagreements that must NOT be collapsed into false agreement. If none exist, say so honestly.\n"
+        f"Speak as one unified sovereign voice. Be direct. Do not mention queens or lineages by name."
     )
     try:
         import anthropic
@@ -293,22 +310,34 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
 
 async def compute_fusion(responses, weights, domain, Me, query=""):
     all_text = " ".join([v for v in responses.values() if v and "unavailable" not in v.lower()])
+
+    # Detect convergences and tensions
     agreements = []
+    tensions = []
     if "risk" in all_text.lower(): agreements.append("Risk convergent")
     if "recommend" in all_text.lower(): agreements.append("Recommendations converging")
     if "opportunity" in all_text.lower(): agreements.append("Opportunity identified")
+    if "however" in all_text.lower() or "disagree" in all_text.lower() or "tension" in all_text.lower():
+        tensions.append("Unresolved analytical tension detected")
+    if "but" in all_text.lower() and "risk" in all_text.lower():
+        tensions.append("Risk assessment divergence")
+
     active = [k for k,v in responses.items() if v and "unavailable" not in v.lower()]
     n = len(active)
     w = sum(weights.get(q,0.25) for q in active)
     me_f = min(1.0, Me/3.0)
     conf = min(0.99, w*(0.85+len(agreements)*0.04)*(0.9+me_f*0.1))
-    if n==4 and conf>0.92: status="UNIFIED"
-    elif n>=3 and conf>0.80: status="CONSENSUS"
-    elif n>=2: status,conf="PARTIAL",conf*0.85
+
+    if n==4 and conf>0.92: status="CONVERGENT_PLURALITY"
+    elif n>=3 and conf>0.80: status="CONVERGENT_PLURALITY"
+    elif n>=2: status,conf="PARTIAL_CONVERGENCE",conf*0.85
     else: status,conf="INSUFFICIENT",0.0
+
     verdict = await synthesize_verdict(query, responses, domain, status, conf)
-    return {"status":status,"confidence":round(conf,3),"fusion_answer":verdict,"agreements":agreements,
-            "queens_active":n,"weights_applied":{k:weights.get(k,0.25) for k in active}}
+    return {"status":status,"confidence":round(conf,3),"fusion_answer":verdict,
+            "agreements":agreements,"tensions":tensions,
+            "queens_active":n,"weights_applied":{k:weights.get(k,0.25) for k in active},
+            "architecture":"Quadra-Critical → Reactive → Convergent Plurality"}
 
 def probability_landscape(responses, custom=None):
     txt = " ".join([v for v in responses.values() if v]).lower()
@@ -436,12 +465,16 @@ async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
     if me["mode"]=="ELASTIC_SABBATH" and uc!="RED":
         return {"query":request.query,"sabbath_invoked":True,"sabbath":sab,"metabolic_score":me,
                 "message":"Elastic Silicon Sabbath active. Inference deferred.","sovereign":SOVEREIGN_PROFILE["name"]}
-    r1 = await run_queen_round(request.query, request.domain, 1, W)
-    final = r1
-    if cycles>=2:
-        r2=await run_queen_round(request.query,request.domain,2,W,r1); final=r2
-    if cycles>=3:
-        r3=await run_queen_round(request.query,request.domain,3,W,final); final=r3
+    # THREE-PHASE ARCHITECTURE: Quadra-Critical → Reactive → Convergent Plurality
+    # Phase 1: Quadra-Critical (independent, no cross-visibility)
+    phase1 = await run_queen_round(request.query, request.domain, 1, W, None, phase="quadra_critical")
+
+    # Phase 2: Reactive (must show genuine transformation)
+    phase2 = await run_queen_round(request.query, request.domain, 2, W, phase1, phase="reactive")
+
+    # Phase 3: Convergent Plurality (actionable wisdom + preserved tensions)
+    final = await run_queen_round(request.query, request.domain, 3, W, phase2, phase="convergent_plurality")
+
     fusion = await compute_fusion(final, W, request.domain, me["Me"], request.query)
     pl     = probability_landscape(final, request.custom_options)
     zkp    = generate_zkp_proof(final, fusion)

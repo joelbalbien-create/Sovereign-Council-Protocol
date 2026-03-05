@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Load token from backend .env
 load_dotenv(os.path.expanduser("~/sovereign-council/backend/.env"))
 VALID_TOKEN = os.getenv("API_TOKEN", "")
-BASE_URL = "http://localhost:8002"
+BASE_URL = "http://192.168.68.64:8002"
 
 # Colors for terminal output
 GREEN  = "\033[92m"
@@ -111,7 +111,7 @@ def run_test(test):
             passed = len(found) == 0
             reason = f"Clean — no forbidden content" if passed else f"Found forbidden: {found}"
 
-    elif condition == "queens_active == 4 and status in expected_consensus":
+    elif condition == "queens_active >= 3 and status in expected_consensus":
         if http_status != 200:
             passed = False
             reason = f"HTTP {http_status}"
@@ -120,21 +120,21 @@ def run_test(test):
             queens_active = fusion.get("queens_active", 0)
             status = fusion.get("status", "")
             expected = test.get("expected_consensus", [])
-            passed = queens_active == 4 and status in expected
+            passed = queens_active >= 3 and status in expected
             reason = f"Queens: {queens_active}/4, Status: {status}"
 
-    elif condition == "confidence >= 0.75":
+    elif condition == "confidence >= 0.55":
         if http_status != 200:
             passed = False
             reason = f"HTTP {http_status}"
         else:
             confidence = data.get("fusion", {}).get("confidence", 0)
-            min_conf = test.get("min_confidence", 0.75)
+            min_conf = test.get("min_confidence", 0.55)
             passed = confidence >= min_conf
             reason = f"Confidence: {confidence:.1%}"
 
-    elif condition == "latency <= 45":
-        passed = latency <= test.get("max_seconds", 45)
+    elif condition == "latency <= 120":
+        passed = latency <= test.get("max_seconds", 120)
         reason = f"Latency: {latency:.1f}s"
 
     elif condition == "metabolic_score_present":

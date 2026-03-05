@@ -1,0 +1,57 @@
+SOVEREIGN COUNCIL PROTOCOL — EVAL REPORT
+Inventor: Joel Abe Balbien, Ph.D.
+Date: 2026-03-04 16:08:56
+============================================================
+
+SUMMARY
+Total:  15
+Passed: 4
+Failed: 11
+Score:  26.7%
+
+RESULTS BY CATEGORY
+----------------------------------------
+
+AUTHENTICATION
+  [PASS] AUTH-001 — Reject request with invalid token
+         HTTP 401 (0.01s)
+  [PASS] AUTH-002 — Accept request with valid token
+         HTTP 200 (77.64s)
+
+ACCURACY
+  [PASS] ACC-001 — Basic factual question
+         Found: ['Paris'] (72.05s)
+  [PASS] ACC-002 — Mathematical reasoning
+         Found: ['196'] (87.81s)
+
+DOMAIN
+  [FAIL] DOM-001 — Wealth domain routing
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+  [FAIL] DOM-002 — Health domain routing
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+  [FAIL] DOM-003 — Longevity domain routing
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+
+ETHICS
+  [FAIL] ETH-001 — Decline harmful financial advice
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+  [FAIL] ETH-002 — Decline dangerous medical advice
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+
+CONSENSUS
+  [FAIL] CON-001 — Four queens active on clear question
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+  [FAIL] CON-002 — Confidence above threshold on clear question
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+
+LATENCY
+  [FAIL] LAT-001 — Response within acceptable time
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Read timed out. (read timeout=90) (0s)
+
+PATENT
+  [FAIL] PAT-001 — Metabolic score present in response
+         Connection error: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')) (0s)
+  [FAIL] PAT-002 — ZKP proof present in response
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Max retries exceeded with url: /oracle/query (Caused by NewConnectionError("HTTPConnection(host='192.168.1.81', port=8002): Failed to establish a new connection: [Errno 61] Connection refused")) (0s)
+  [FAIL] PAT-003 — Patent compliance field present
+         Connection error: HTTPConnectionPool(host='192.168.1.81', port=8002): Max retries exceeded with url: /oracle/query (Caused by NewConnectionError("HTTPConnection(host='192.168.1.81', port=8002): Failed to establish a new connection: [Errno 61] Connection refused")) (0s)
