@@ -184,7 +184,7 @@ async def call_openai(prompt, system):
         import openai
         client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         r = await client.chat.completions.create(model="gpt-4o",
-            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=500)
+            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=1500)
         return r.choices[0].message.content
     except Exception as e: return f"Alethea unavailable: {e}"
 
@@ -192,7 +192,7 @@ async def call_anthropic(prompt, system):
     try:
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        r = await client.messages.create(model="claude-opus-4-6",max_tokens=500,system=system,
+        r = await client.messages.create(model="claude-opus-4-6",max_tokens=1500,system=system,
             messages=[{"role":"user","content":prompt}])
         return r.content[0].text
     except Exception as e: return f"Kairos unavailable: {e}"
@@ -211,7 +211,7 @@ async def call_grok(prompt, system):
         import openai
         client = openai.AsyncOpenAI(api_key=os.getenv("XAI_API_KEY"),base_url="https://api.x.ai/v1")
         r = await client.chat.completions.create(model="grok-3",
-            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=500)
+            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],max_tokens=1500)
         return r.choices[0].message.content
     except Exception as e: return f"Eirene unavailable: {e}"
 
@@ -300,7 +300,7 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         r = await client.messages.create(
-            model="claude-opus-4-6", max_tokens=1000,
+            model="claude-opus-4-6", max_tokens=2500,
             system=f"You are the Sovereign Council fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
             messages=[{"role":"user","content":prompt}]
         )
