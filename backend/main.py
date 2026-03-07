@@ -4,8 +4,8 @@ Patent: Adaptive Multi-Lineage Consensus Architecture with Grid-Telemetry Feedba
 Inventor: Joel Abe Balbien, Ph.D.
 
 Epistemic Collaborators:
-- Alethea (OpenAI GPT-4o)      — Quantitative Analyst
-- Sophia  (Google Gemini 2.5)  — Macro Strategist
+- Alethea (OpenAI)              — Quantitative Analyst
+- Sophia  (Google)              — Macro Strategist
 - Eirene  (xAI Grok-3)         — Risk Analyst
 - Kairos  (Anthropic Claude)   — Wisdom Integrator
 
@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncio, os, time, hashlib, random, requests
 from dotenv import load_dotenv
+from archive import save_verdict, get_archive_counsel, get_all_verdicts, get_verdict_by_id, get_archive_stats
 import io
 import base64
 
@@ -215,7 +216,7 @@ async def call_grok(prompt, system):
         return r.choices[0].message.content
     except Exception as e: return f"Eirene unavailable: {e}"
 
-async def run_queen_round(query, domain, round_num, weights, prev=None, phase=None):
+async def run_queen_round(query, domain, round_num, weights, prev=None, phase=None, archive_counsel=None):
     configs = DOMAIN_CONFIGS.get(domain, DOMAIN_CONFIGS["general"])
     ctx = f"Sovereign: Joel Balbien age 71 Tier 4. Domain: {domain}."
 
@@ -231,7 +232,8 @@ async def run_queen_round(query, domain, round_num, weights, prev=None, phase=No
     elif phase == "convergent_plurality":
         # Phase 3: Synthesize actionable wisdom while preserving tensions (keep brief)
         prevtext = "\n".join([f"{k.upper()}: {v[:150]}" for k,v in prev.items() if v and "unavailable" not in v.lower()])
-        prompt = f"{ctx}\nQuery: {query}\n\nFinal positions:\n{prevtext}\n\nIn 3 sentences: (1) emergent insight no single voice could produce, (2) one actionable recommendation, (3) any unresolved tension to preserve."
+        archive_section = f"\n\nARCHIVE COUNSEL (advisory only):\n{archive_counsel[:800]}" if archive_counsel else ""
+        prompt = f"{ctx}\nQuery: {query}\n\nFinal positions:\n{prevtext}{archive_section}\n\nIn 3 sentences: (1) emergent insight no single voice could produce, (2) one actionable recommendation, (3) any unresolved tension to preserve."
 
     else:
         # Legacy fallback
@@ -361,6 +363,24 @@ class QueryRequest(BaseModel):
     custom_options: Optional[List[str]] = None
     grid_region: Optional[str] = "CAISO"
 
+@app.get("/archive")
+async def archive_list(token=Depends(verify_token)):
+    """Return all archived Council verdicts."""
+    return {"verdicts": get_all_verdicts(50), "sovereign": SOVEREIGN_PROFILE["name"]}
+
+@app.get("/archive/stats")
+async def archive_stats(token=Depends(verify_token)):
+    """Return archive statistics."""
+    return {**get_archive_stats(), "sovereign": SOVEREIGN_PROFILE["name"]}
+
+@app.get("/archive/{verdict_id}")
+async def archive_detail(verdict_id: int, token=Depends(verify_token)):
+    """Return full verdict by ID."""
+    verdict = get_verdict_by_id(verdict_id)
+    if not verdict:
+        raise HTTPException(status_code=404, detail="Verdict not found")
+    return verdict
+
 @app.get("/health")
 async def health():
     return {"status":"online","system":"Sovereign Council","version":"1.0",
@@ -473,11 +493,16 @@ async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
     phase2 = await run_queen_round(request.query, request.domain, 2, W, phase1, phase="reactive")
 
     # Phase 3: Convergent Plurality (actionable wisdom + preserved tensions)
-    final = await run_queen_round(request.query, request.domain, 3, W, phase2, phase="convergent_plurality")
+    # Archive Voice — advisory counsel from prior deliberations
+    archive_counsel = get_archive_counsel(request.query, request.domain)
+    final = await run_queen_round(request.query, request.domain, 3, W, phase2, phase="convergent_plurality", archive_counsel=archive_counsel)
 
     fusion = await compute_fusion(final, W, request.domain, me["Me"], request.query)
     pl     = probability_landscape(final, request.custom_options)
     zkp    = generate_zkp_proof(final, fusion)
+    # Save to Deliberation Archive
+    save_verdict(request.query, request.domain, fusion, final, zkp)
+
     return {"query":request.query,"domain":request.domain,
             "urgency":{"color":uc,"U":U,"label":ucfg["label"]},
             "metabolic_score":me,"sabbath":sab,"grid_telemetry":tel,

@@ -31,6 +31,10 @@ npm start &
 echo "Frontend starting..."
 
 echo "Sovereign Council launching at http://localhost:3000"
+
+# Save current IP for curl helper
+echo $CURRENT_IP > ~/sovereign-council/.current_ip
+echo "IP saved to .current_ip for curl commands"
 echo "iPad access at http://$CURRENT_IP:3000"
 sleep 6
 open -a Safari http://localhost:3000
