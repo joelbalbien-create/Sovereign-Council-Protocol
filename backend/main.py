@@ -362,6 +362,8 @@ class QueryRequest(BaseModel):
     urgency_override: Optional[str] = None
     custom_options: Optional[List[str]] = None
     grid_region: Optional[str] = "CAISO"
+    mode: Optional[str] = "deliberative"  # "deliberative" | "division_of_labor"
+    resume_text: Optional[str] = None     # for workforce division of labor
 
 @app.get("/archive")
 async def archive_list(token=Depends(verify_token)):
@@ -380,6 +382,31 @@ async def archive_detail(verdict_id: int, token=Depends(verify_token)):
     if not verdict:
         raise HTTPException(status_code=404, detail="Verdict not found")
     return verdict
+
+@app.post("/oracle/labor")
+async def oracle_labor(request: QueryRequest, token=Depends(verify_token)):
+    """Division of Labor mode — completely isolated from deliberative consensus."""
+    from labor import run_labor_division
+    start = time.time()
+    result = await run_labor_division(
+        query=request.query,
+        domain=request.domain,
+        resume_text=request.resume_text,
+        call_openai=call_openai,
+        call_anthropic=call_anthropic,
+        call_gemini=call_gemini,
+        call_grok=call_grok
+    )
+    result["query"] = request.query
+    result["domain"] = request.domain
+    result["latency"] = round(time.time() - start, 2)
+    result["sovereign"] = SOVEREIGN_PROFILE["name"]
+    # Save to Deliberation Archive
+    if "fusion" in result:
+        zkp = generate_zkp_proof(result.get("queen_analyses", {}), result["fusion"])
+        save_verdict(request.query, f"labor_{result.get('labor_domain','general')}", result["fusion"], result.get("queen_analyses", {}), zkp)
+        result["zkp_proof"] = zkp
+    return result
 
 @app.get("/health")
 async def health():
