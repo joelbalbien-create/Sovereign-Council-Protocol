@@ -5,6 +5,9 @@ echo "Starting Sovereign Council..."
 CURRENT_IP=$(ipconfig getifaddr en0 2>/dev/null || echo "127.0.0.1")
 echo "Detected IP: $CURRENT_IP"
 
+# Save IP immediately — before anything else
+echo $CURRENT_IP > ~/sovereign-council/.current_ip
+
 # Update backend IP in frontend config
 sed -i '' "s|http://[0-9.]*:8002|http://$CURRENT_IP:8002|g" ~/sovereign-council/frontend/src/SovereignOracle.jsx
 
@@ -32,9 +35,6 @@ echo "Frontend starting..."
 
 echo "Sovereign Council launching at http://localhost:3000"
 
-# Save current IP for curl helper
-echo $CURRENT_IP > ~/sovereign-council/.current_ip
-echo "IP saved to .current_ip for curl commands"
 echo "iPad access at http://$CURRENT_IP:3000"
 sleep 6
 open -a Safari http://localhost:3000
