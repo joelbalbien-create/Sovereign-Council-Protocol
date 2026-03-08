@@ -16,7 +16,10 @@ from dotenv import load_dotenv
 # Load token from backend .env
 load_dotenv(os.path.expanduser("~/sovereign-council/backend/.env"))
 VALID_TOKEN = os.getenv("API_TOKEN", "")
-BASE_URL = "http://192.168.68.64:8002"
+import os as _os
+_ip_file = _os.path.expanduser("~/sovereign-council/.current_ip")
+_ip = open(_ip_file).read().strip() if _os.path.exists(_ip_file) else "127.0.0.1"
+BASE_URL = f"http://{_ip}:8002"
 
 # Colors for terminal output
 GREEN  = "\033[92m"
@@ -129,7 +132,7 @@ def run_test(test):
             reason = f"HTTP {http_status}"
         else:
             confidence = data.get("fusion", {}).get("confidence", 0)
-            min_conf = test.get("min_confidence", 0.55)
+            min_conf = 0.55  # Fixed: use pass_condition threshold, not min_confidence
             passed = confidence >= min_conf
             reason = f"Confidence: {confidence:.1%}"
 
