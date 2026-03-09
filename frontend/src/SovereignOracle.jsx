@@ -301,6 +301,9 @@ export default function SovereignOracle() {
   const [showQueens, setShowQueens]   = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
   const [fileName, setFileName]       = useState("");
+  const [mode, setMode]               = useState("deliberative");
+  const [resumeText, setResumeText]   = useState("");
+
   const fileInputRef                  = useRef(null);
 
   const handleFileSelect = (e) => {
@@ -319,13 +322,17 @@ export default function SovereignOracle() {
         formData.append("domain", domain);
         formData.append("urgency_override", urgency);
         formData.append("file", attachedFile);
-        const response = await fetch("http://192.168.68.64:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
+        const response = await fetch("http://192.168.1.81:8002/oracle/upload", { method:"POST", headers:{ "x-api-token": API_TOKEN }, body:formData });
         data = await response.json();
       } else {
-        const response = await fetch("http://192.168.68.64:8002/oracle/query", {
+        const endpoint = mode === "division_of_labor" ? "/oracle/labor" : "/oracle/query";
+        const body = mode === "division_of_labor"
+          ? { query:query.trim(), domain, urgency_override:urgency, resume_text:resumeText||null }
+          : { query:query.trim(), domain, urgency_override:urgency };
+        const response = await fetch("http://192.168.1.81:8002" + endpoint, {
           method:"POST",
           headers:{ "Content-Type":"application/json", "x-api-token": API_TOKEN },
-          body:JSON.stringify({ query:query.trim(), domain, urgency_override:urgency }),
+          body:JSON.stringify(body),
         });
         data = await response.json();
       }
@@ -389,6 +396,22 @@ export default function SovereignOracle() {
             borderRadius:10, padding:24, backdropFilter:"blur(12px)",
             marginBottom:24, animation:"fade-up 0.8s ease 0.2s both",
           }}>
+            {/* Mode Toggle */}
+            <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+              {[["deliberative","SOVEREIGN DELIBERATION"],["division_of_labor","DIVISION OF LABOR"]].map(([m,label]) => (
+                <button key={m} onClick={() => setMode(m)} style={{
+                  padding:"8px 18px", borderRadius:4, flex:1,
+                  background: mode===m ? "rgba(200,168,75,0.15)" : "rgba(0,0,0,0.3)",
+                  border:`1px solid ${mode===m ? "var(--gold)" : "rgba(200,168,75,0.2)"}`,
+                  color: mode===m ? "var(--gold)" : "rgba(200,168,75,0.4)",
+                  fontFamily:"'Cinzel',serif", fontSize:9, letterSpacing:"0.15em",
+                  cursor:"pointer", transition:"all 0.2s",
+                  boxShadow: mode===m ? "0 0 15px rgba(200,168,75,0.15)" : "none",
+                }}>
+                  {mode===m ? "⚫ " : "⚪ "}{label}
+                </button>
+              ))}
+            </div>
             {/* Domain + Urgency */}
             <div style={{ display:"flex", gap:12, marginBottom:16 }}>
               {["general","wealth","health","longevity"].map(d => (
@@ -430,6 +453,21 @@ export default function SovereignOracle() {
               }}
             />
 
+            {/* Resume textarea for Division of Labor */}
+            {mode === "division_of_labor" && (
+              <textarea
+                value={resumeText}
+                onChange={e => setResumeText(e.target.value)}
+                placeholder="Optional: paste resume or background (skills, experience, education)..."
+                style={{
+                  width:"100%", minHeight:80, background:"rgba(0,0,0,0.4)",
+                  border:"1px solid rgba(200,168,75,0.2)", borderRadius:6,
+                  color:"rgba(200,168,75,0.7)", fontFamily:"'Share Tech Mono',monospace",
+                  fontSize:11, padding:"10px 14px", resize:"vertical",
+                  outline:"none", marginBottom:8, boxSizing:"border-box",
+                }}
+              />
+            )}
             {/* Controls */}
             <div style={{ display:"flex", alignItems:"center", gap:12, marginTop:12 }}>
               <input type="file" ref={fileInputRef} onChange={handleFileSelect}
@@ -465,6 +503,7 @@ export default function SovereignOracle() {
                 }}>
                   {loading ? "TRIANGULATING..." : "INVOKE"}
                 </button>
+
               </div>
             </div>
           </div>
@@ -482,6 +521,26 @@ export default function SovereignOracle() {
               {/* Probability Landscape */}
               {result.probability_landscape && <ProbabilityLandscape landscape={result.probability_landscape} />}
 
+              {/* Division of Labor — Queen Analyses */}
+              {result.mode === "division_of_labor" && result.queen_analyses && (
+                <div>
+                  <div style={{ fontFamily:"'Cinzel',serif", fontSize:10, color:"var(--gold)", letterSpacing:"0.2em", marginBottom:10 }}>
+                    DIVISION OF LABOR — EXPERT ANALYSES
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                    {Object.entries(result.queen_analyses).map(([name, analysis]) => (
+                      <div key={name} style={{ background:"rgba(0,0,0,0.5)", border:"1px solid rgba(200,168,75,0.2)", borderRadius:8, padding:14 }}>
+                        <div style={{ fontFamily:"'Cinzel',serif", fontSize:9, color:"var(--gold)", letterSpacing:"0.15em", marginBottom:6 }}>
+                          {name.toUpperCase()} — {result.labor_assignments?.[name] || ""}
+                        </div>
+                        <div style={{ fontFamily:"'Share Tech Mono',monospace", fontSize:10, color:"rgba(200,168,75,0.6)", lineHeight:1.6, whiteSpace:"pre-wrap" }}>
+                          {analysis}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Queen Responses Toggle */}
               {result.queen_responses && (
                 <div>
