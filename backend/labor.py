@@ -100,7 +100,7 @@ async def run_labor_division(query, domain, resume_text, call_openai, call_anthr
         client = sdk.AsyncAnthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
         resp = await asyncio.wait_for(
             client.messages.create(
-                model='claude-opus-4-6', max_tokens=2500,
+                model='claude-sonnet-4-5', max_tokens=2500,
                 system='Sovereign Council Fusion Engine. Integrate four expert analyses into one unified recommendation. Be specific and actionable.',
                 messages=[{'role': 'user', 'content': fusion_prompt}]
             ), timeout=120)

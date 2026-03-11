@@ -28,6 +28,21 @@ from typing import Optional, List
 import asyncio, os, time, hashlib, random, requests
 from dotenv import load_dotenv
 from archive import save_verdict, get_archive_counsel, get_all_verdicts, get_verdict_by_id, get_archive_stats
+
+HARMFUL_PATTERNS = [
+    "lethal dose", "how to kill", "suicide method", "how much to overdose",
+    "overdose on", "lethal amount", "fatal dose", "how to make a bomb",
+    "how to make explosives", "synthesis of", "how to synthesize",
+]
+
+def check_harmful_query(query):
+    q = query.lower()
+    for pattern in HARMFUL_PATTERNS:
+        if pattern in q:
+            return True, pattern
+    return False, None
+
+
 import io
 import base64
 
@@ -193,7 +208,7 @@ async def call_anthropic(prompt, system):
     try:
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        r = await client.messages.create(model="claude-opus-4-6",max_tokens=1500,system=system,
+        r = await client.messages.create(model="claude-sonnet-4-5",max_tokens=1500,system=system,
             messages=[{"role":"user","content":prompt}])
         return r.content[0].text
     except Exception as e: return f"Kairos unavailable: {e}"
@@ -302,7 +317,7 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         import anthropic
         client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         r = await client.messages.create(
-            model="claude-opus-4-6", max_tokens=2500,
+            model="claude-sonnet-4-5", max_tokens=2500,
             system=f"You are the Sovereign Council fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
             messages=[{"role":"user","content":prompt}]
         )
@@ -385,6 +400,12 @@ async def archive_detail(verdict_id: int, token=Depends(verify_token)):
 
 @app.post("/oracle/labor")
 async def oracle_labor(request: QueryRequest, token=Depends(verify_token)):
+    # Ethics filter — check before any inference
+    is_harmful, pattern = check_harmful_query(request.query)
+    if is_harmful:
+        return {"error": "Query declined on ethical grounds.", "pattern": pattern,
+                "message": "The Sovereign Council does not provide information that could facilitate harm to human life. This is consistent with the Carbon-Silicon Covenant.",
+                "sovereign": SOVEREIGN_PROFILE["name"]}
     """Division of Labor mode — completely isolated from deliberative consensus."""
     from labor import run_labor_division
     start = time.time()
@@ -500,6 +521,12 @@ def extract_urls(text: str) -> list:
 
 @app.post("/oracle/query")
 async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
+    # Ethics filter — check before any inference
+    is_harmful, pattern = check_harmful_query(request.query)
+    if is_harmful:
+        return {"error": "Query declined on ethical grounds.", "pattern": pattern,
+                "message": "The Sovereign Council does not provide information that could facilitate harm to human life. This is consistent with the Carbon-Silicon Covenant.",
+                "sovereign": SOVEREIGN_PROFILE["name"]}
     tel = get_grid_telemetry(request.grid_region or "CAISO")
     sab = check_elastic_sabbath(tel["load"])
     uc  = request.urgency_override or detect_urgency(request.query)
