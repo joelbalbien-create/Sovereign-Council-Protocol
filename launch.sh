@@ -22,6 +22,8 @@ sleep 2
 # Start backend with detected IP
 cd ~/sovereign-council/backend
 export PATH="/Users/joelbalbien/Library/Python/3.9/bin:$PATH"
+# Load API keys from .env
+export $(cat .env | grep -v "^#" | xargs)
 python3 -m uvicorn main:app --host $CURRENT_IP --port 8002 &
 echo "Backend starting on $CURRENT_IP:8002..."
 
