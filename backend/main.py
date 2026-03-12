@@ -311,7 +311,13 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
         f"1. EMERGENT INSIGHT: State one insight that arose from the interaction of perspectives that no single voice could have produced alone.\n"
         f"2. ACTIONABLE WISDOM: Give one specific, concrete recommendation.\n"
         f"3. UNRESOLVED TENSIONS: Name any genuine disagreements that must NOT be collapsed into false agreement. If none exist, say so honestly.\n"
-        f"Speak as one unified sovereign voice. Be direct. Do not mention queens or lineages by name."
+        f"Speak as one unified sovereign voice. Be direct. Do not mention queens or lineages by name.\n\n"
+        f"At the conclusion of every verdict, append exactly this attestation block:\n\n"
+        f"---\n"
+        f"\u2696\ufe0f **ALETHEA** \u2014 Truth & Clarity\n"
+        f"\U0001f989 **SOPHIA** \u2014 Wisdom & Integration\n"
+        f"\U0001f54a\ufe0f **EIRENE** \u2014 Harmony & Resolution\n"
+        f"\u23f3 **KAIROS** \u2014 Timing & Ethics"
     )
     try:
         import anthropic
@@ -321,7 +327,12 @@ async def synthesize_verdict(query, responses, domain, status, confidence):
             system=f"You are the Sovereign Council fusion engine for domain: {domain}. Sovereign: Joel Balbien, age 71, Tier 4.",
             messages=[{"role":"user","content":prompt}]
         )
-        return r.content[0].text
+        text = r.content[0].text
+        # Deduplicate — strip repeated verdict blocks if model repeated itself
+        marker = "# SOVEREIGN VERDICT"
+        if text.count(marker) > 1:
+            text = text[:text.index(marker, text.index(marker)+1)]
+        return text.strip()
     except Exception as e:
         return f"Consensus reached at {confidence*100:.1f}% confidence. See individual lineage responses for full analysis."
 
