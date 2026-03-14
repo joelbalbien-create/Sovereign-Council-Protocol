@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncio, os, time, hashlib, random, requests
 from dotenv import load_dotenv
+from fasttrack import is_fast_track, run_fast_track
 from archive import save_verdict, get_archive_counsel, get_all_verdicts, get_verdict_by_id, get_archive_stats
 
 HARMFUL_PATTERNS = [
@@ -530,6 +531,7 @@ def extract_urls(text: str) -> list:
             urls.append(full)
     return urls[:3]  # Max 3 URLs per query
 
+
 @app.post("/oracle/query")
 async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
     # Ethics filter — check before any inference
@@ -538,6 +540,27 @@ async def oracle_query(request: QueryRequest, token=Depends(verify_token)):
         return {"error": "Query declined on ethical grounds.", "pattern": pattern,
                 "message": "The Sovereign Council does not provide information that could facilitate harm to human life. This is consistent with the Carbon-Silicon Covenant.",
                 "sovereign": SOVEREIGN_PROFILE["name"]}
+    # FAST TRACK — auto-route objectively verifiable queries to single queen
+    if is_fast_track(request.query):
+        fast_answer = await run_fast_track(request.query)
+        return {
+            "query": request.query,
+            "mode": "FAST_TRACK",
+            "queen": "ALETHEA",
+            "fusion": {
+                "status": "FAST_TRACK",
+                "confidence": 1.0,
+                "fusion_answer": fast_answer,
+                "agreements": [],
+                "tensions": [],
+                "queens_active": 1,
+                "weights_applied": {},
+                "architecture": "Single-queen fast track — objectively verifiable query"
+            },
+            "sovereign": SOVEREIGN_PROFILE["name"],
+            "patent_compliance": True
+        }
+
     tel = get_grid_telemetry(request.grid_region or "CAISO")
     sab = check_elastic_sabbath(tel["load"])
     uc  = request.urgency_override or detect_urgency(request.query)
