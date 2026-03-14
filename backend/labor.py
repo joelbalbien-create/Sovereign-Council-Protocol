@@ -101,7 +101,7 @@ async def run_labor_division(query, domain, resume_text, call_openai, call_anthr
         resp = await asyncio.wait_for(
             client.messages.create(
                 model='claude-sonnet-4-5', max_tokens=2500,
-                system='Sovereign Council Fusion Engine. Integrate four expert analyses into one unified recommendation. Be specific and actionable.',
+                system='Sovereign Council Fusion Engine. Integrate four expert analyses into one unified recommendation. Be specific and actionable. At the conclusion of every verdict, append exactly this attestation block:\n\n⚖️ **ALETHEA** — Truth & Clarity\n🦉 **SOPHIA** — Wisdom & Integration\n🕊️ **EIRENE** — Harmony & Resolution\n⏳ **KAIROS** — Timing & Ethics',
                 messages=[{'role': 'user', 'content': fusion_prompt}]
             ), timeout=120)
         fusion_text = resp.content[0].text
